@@ -45,18 +45,20 @@ class _MainPageState extends State<MainPage> {
       final Map<String, dynamic> rawLease = leasesAndNeighbors["dhcp_lease"];
       _DHCPLease lease;
       if (rawLease != null) {
-        final String ipv4Address = rawLease["ipv4_address"];
-        final String ipv4AddressExpire = rawLease["end"];
-        final String hostName = rawLease["host_name"];
+        final String ipv4Address = rawLease["ip_address"];
+        final String ipv4AddressExpire = rawLease["expire_at"];
+        final String hostName = rawLease["hostname"];
         lease = _DHCPLease(hostName, ipv4Address, ipv4AddressExpire);
       }
-      final List<dynamic> rawIpv6Addresses = leasesAndNeighbors["ndp_entries"];
-      final List<String> ipv6Addresses = List();
-      for (var value in rawIpv6Addresses) {
-        final Map<String, dynamic> rawIpv6Address = value;
-        ipv6Addresses.add(rawIpv6Address["ipv6_address"]);
+      final List<dynamic> rawNdpEntries = leasesAndNeighbors["ndp_entries"];
+      final List<_NDPEntry> ndpEntries = List();
+      for (var value in rawNdpEntries) {
+        final Map<String, dynamic> rawNdpEntry = value;
+        final String ipAddress = rawNdpEntry["ip_address"];
+        final String cacheState = rawNdpEntry["cache_state"];
+        ndpEntries.add(_NDPEntry(ipAddress, cacheState));
       }
-      clients.add(_ClientInfo(mac, lease, ipv6Addresses, false));
+      clients.add(_ClientInfo(mac, lease, ndpEntries, false));
     }
     return clients;
   }
@@ -117,19 +119,26 @@ class _MainPageState extends State<MainPage> {
         context: context, builder: (context) => alertDialog);
   }
 
+  String _convertNDPEntriesToPanelBody(List<_NDPEntry> entries) {
+    final buffer = StringBuffer();
+    buffer.writeln("NDP Entries: ${entries.isNotEmpty ? "" : "None"}");
+    for (var entry in entries) {
+      buffer.writeln("  - ${entry.ipAddress} [${entry.cacheState}]");
+    }
+    return buffer.toString();
+  }
+
   String _convertClientToPanelBody(_ClientInfo client) {
-    String leaseStr = "DHCP: None\n";
+    final buffer = StringBuffer();
+    buffer.writeln("Mac: ${client.mac}");
+    buffer.writeln("DHCP: ${client.lease != null ? "" : "None"}");
     if (client.lease != null) {
-      leaseStr = "DHCP:\n"
-          "  Hostname: ${client.lease.hostName ?? "Unknown"}\n"
-          "  Address: ${client.lease.ipv4Address}\n"
-          "  Expire At: ${client.lease.ipv4AddressExpire}\n";
+      buffer.writeln("  Hostname: ${client.lease.hostName ?? "Unknown"}");
+      buffer.writeln("  Address: ${client.lease.ipv4Address}");
+      buffer.writeln("  Expire At: ${client.lease.ipv4AddressExpire}");
     }
-    String ipv6Str = "NDP Entries: None\n";
-    if (client.ipv6Addresses.isNotEmpty) {
-      ipv6Str = "NDP Entries:\n  - ${client.ipv6Addresses.join("\n  - ")}\n";
-    }
-    return "Mac: ${client.mac}\n$leaseStr$ipv6Str";
+    buffer.writeln(_convertNDPEntriesToPanelBody(client.ndpEntries));
+    return buffer.toString();
   }
 
   ExpansionPanel _createExpansionPanel(_ClientInfo client) {
@@ -138,7 +147,7 @@ class _MainPageState extends State<MainPage> {
           String mac = client.mac;
           final hostName = _hostNameCache.get(mac);
           final title =
-              mac + (hostName == null ? "" : " [${hostName.hostName}]");
+              mac + (hostName == null ? "" : " - ${hostName.hostName}");
           return GestureDetector(
             child: Text(title),
             onLongPress: () async {
@@ -263,10 +272,17 @@ class HostNameCacheEntry {
 class _ClientInfo {
   final String mac;
   final _DHCPLease lease;
-  final List<String> ipv6Addresses;
+  final List<_NDPEntry> ndpEntries;
   bool expanded = false;
 
-  _ClientInfo(this.mac, this.lease, this.ipv6Addresses, this.expanded);
+  _ClientInfo(this.mac, this.lease, this.ndpEntries, this.expanded);
+}
+
+class _NDPEntry {
+  final String ipAddress;
+  final String cacheState;
+
+  _NDPEntry(this.ipAddress, this.cacheState);
 }
 
 class _DHCPLease {

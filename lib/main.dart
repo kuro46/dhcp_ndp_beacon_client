@@ -85,7 +85,7 @@ class _MainPageState extends State<MainPage> {
           "IPv4 Address: ${client.lease.ipv4Address}\n"
           "IPv4 Address Expire: ${client.lease.ipv4AddressExpire}\n";
     }
-    String ipv6Str = "IPv6 Addresses: None";
+    String ipv6Str = "IPv6 Addresses: None\n";
     if (client.ipv6Addresses.isNotEmpty) {
       ipv6Str = "IPv6 Addresses:\n  - ${client.ipv6Addresses.join("\n  ")}\n";
     }

@@ -81,12 +81,18 @@ class _MainPageState extends State<MainPage> {
   }
 
   Future _updateStatus() async {
+    final oldClients = _clients;
     setState(() {
       _clients = null;
     });
-    _retrieveClients().then((value) {
+    _retrieveClients().then((newClients) {
+      for (final oldClient in oldClients) {
+        newClients
+            .where((newClient) => newClient.mac == oldClient.mac)
+            .forEach((newClient) => newClient.expanded = oldClient.expanded);
+      }
       setState(() {
-        _clients = value;
+        _clients = newClients;
       });
     });
   }
